@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
 
 import sys, os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -65,11 +66,15 @@ class TestAIGeneratorResponse:
 
         gen = AIGenerator(api_key="fake", model="test-model")
         result = gen.generate_response(
-            "question", tools=[{"name": "search_course_content"}], tool_manager=tool_manager
+            "question",
+            tools=[{"name": "search_course_content"}],
+            tool_manager=tool_manager,
         )
 
         assert result == "Final answer"
-        tool_manager.execute_tool.assert_called_once_with("search_course_content", query="q")
+        tool_manager.execute_tool.assert_called_once_with(
+            "search_course_content", query="q"
+        )
 
     @patch("anthropic.Anthropic")
     def test_tool_use_without_tool_manager(self, MockAnthropic):
@@ -144,8 +149,14 @@ class TestSequentialToolCalls:
 
         mock_client = MockAnthropic.return_value
         mock_client.messages.create.side_effect = [
-            _api_response([_tool_use_block("get_course_outline", {"course": "X"}, "t1")], stop_reason="tool_use"),
-            _api_response([_tool_use_block("search_course_content", {"query": "topic"}, "t2")], stop_reason="tool_use"),
+            _api_response(
+                [_tool_use_block("get_course_outline", {"course": "X"}, "t1")],
+                stop_reason="tool_use",
+            ),
+            _api_response(
+                [_tool_use_block("search_course_content", {"query": "topic"}, "t2")],
+                stop_reason="tool_use",
+            ),
             _api_response([_text_block("Combined answer")], stop_reason="end_turn"),
         ]
 
@@ -154,7 +165,9 @@ class TestSequentialToolCalls:
 
         tools_list = [{"name": "get_course_outline"}, {"name": "search_course_content"}]
         gen = AIGenerator(api_key="fake", model="test-model")
-        result = gen.generate_response("complex question", tools=tools_list, tool_manager=tool_manager)
+        result = gen.generate_response(
+            "complex question", tools=tools_list, tool_manager=tool_manager
+        )
 
         assert result == "Combined answer"
         assert mock_client.messages.create.call_count == 3
@@ -168,14 +181,18 @@ class TestSequentialToolCalls:
         mock_client = MockAnthropic.return_value
         mock_client.messages.create.side_effect = [
             _api_response([_tool_use_block()], stop_reason="tool_use"),
-            _api_response([_text_block("Sorry, I couldn't search")], stop_reason="end_turn"),
+            _api_response(
+                [_text_block("Sorry, I couldn't search")], stop_reason="end_turn"
+            ),
         ]
 
         tool_manager = MagicMock()
         tool_manager.execute_tool.side_effect = RuntimeError("tool broke")
 
         gen = AIGenerator(api_key="fake", model="test-model")
-        result = gen.generate_response("q", tools=[{"name": "t"}], tool_manager=tool_manager)
+        result = gen.generate_response(
+            "q", tools=[{"name": "t"}], tool_manager=tool_manager
+        )
 
         assert result == "Sorry, I couldn't search"
 
@@ -206,7 +223,9 @@ class TestSequentialToolCalls:
         tool_manager.execute_tool.return_value = "data"
 
         gen = AIGenerator(api_key="fake", model="test-model")
-        result = gen.generate_response("q", tools=[{"name": "t"}], tool_manager=tool_manager)
+        result = gen.generate_response(
+            "q", tools=[{"name": "t"}], tool_manager=tool_manager
+        )
 
         assert result == "gave up"
         # 1 initial + 2 follow-ups = 3 total API calls
@@ -221,7 +240,9 @@ class TestSequentialToolCalls:
         mock_client = MockAnthropic.return_value
         mock_client.messages.create.side_effect = [
             _api_response([_tool_use_block(tool_id="t1")], stop_reason="tool_use"),
-            _api_response([_text_block("done after one round")], stop_reason="end_turn"),
+            _api_response(
+                [_text_block("done after one round")], stop_reason="end_turn"
+            ),
         ]
 
         tool_manager = MagicMock()
@@ -280,4 +301,10 @@ class TestSequentialToolCalls:
         third_call_kwargs = mock_client.messages.create.call_args_list[2][1]
         messages = third_call_kwargs["messages"]
         assert len(messages) == 5
-        assert [m["role"] for m in messages] == ["user", "assistant", "user", "assistant", "user"]
+        assert [m["role"] for m in messages] == [
+            "user",
+            "assistant",
+            "user",
+            "assistant",
+            "user",
+        ]
