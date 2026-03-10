@@ -7,6 +7,40 @@ let currentSessionId = null;
 // DOM elements
 let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
 
+// Theme toggle
+function initTheme() {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+    }
+    updateThemeIcon();
+}
+
+function toggleTheme() {
+    const isLight = document.body.getAttribute('data-theme') === 'light';
+    if (isLight) {
+        document.body.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.body.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+    }
+    updateThemeIcon();
+}
+
+function updateThemeIcon() {
+    const isLight = document.body.getAttribute('data-theme') === 'light';
+    const moonIcon = document.querySelector('.icon-moon');
+    const sunIcon = document.querySelector('.icon-sun');
+    if (moonIcon && sunIcon) {
+        moonIcon.style.display = isLight ? 'none' : 'block';
+        sunIcon.style.display = isLight ? 'block' : 'none';
+    }
+}
+
+// Initialize theme before DOM ready to prevent flash
+initTheme();
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Get DOM elements after page loads
@@ -15,7 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton = document.getElementById('sendButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
-    
+
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+    updateThemeIcon();
+
     setupEventListeners();
     createNewSession();
     loadCourseStats();
