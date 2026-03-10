@@ -3,14 +3,16 @@ from typing import List, Optional, Dict, Any
 
 class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
-    
+
+    MAX_TOOL_ROUNDS = 2
+
     # Static system prompt to avoid rebuilding on each call
     SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to a comprehensive search tool for course information.
 
 Tool Usage:
 - Use the **search_course_content** tool for questions about specific course content or detailed educational materials
 - Use the **get_course_outline** tool for questions about a course's structure, outline, syllabus, or lesson list. This returns the course title, course link, and each lesson's number and title — include all of these in your response.
-- **One tool call per query maximum**
+- **Up to 2 tool calls per query** — use a second call only when the first result is insufficient or when you need information from a different source
 - Synthesize tool results into accurate, fact-based responses
 - If a tool yields no results, state this clearly without offering alternatives
 
@@ -83,54 +85,71 @@ Provide only the direct answer to what was asked.
         # Handle tool execution if needed
         if response.stop_reason == "tool_use" and tool_manager:
             return self._handle_tool_execution(response, api_params, tool_manager)
-        
+
         # Return direct response
-        return response.content[0].text
-    
+        return self._extract_text(response)
+
+    @staticmethod
+    def _extract_text(response) -> str:
+        """Extract text from a response that may contain mixed content blocks."""
+        for block in response.content:
+            if block.type == "text":
+                return block.text
+        return ""
+
     def _handle_tool_execution(self, initial_response, base_params: Dict[str, Any], tool_manager):
         """
-        Handle execution of tool calls and get follow-up response.
-        
-        Args:
-            initial_response: The response containing tool use requests
-            base_params: Base API parameters
-            tool_manager: Manager to execute tools
-            
-        Returns:
-            Final response text after tool execution
+        Handle up to MAX_TOOL_ROUNDS of sequential tool calls.
+
+        Each round: execute tools from the current response, send results back.
+        If the model requests more tools and rounds remain, continue looping.
+        On the last round or after a tool error, omit tools to force a text response.
         """
-        # Start with existing messages
         messages = base_params["messages"].copy()
-        
-        # Add AI's tool use response
-        messages.append({"role": "assistant", "content": initial_response.content})
-        
-        # Execute all tool calls and collect results
-        tool_results = []
-        for content_block in initial_response.content:
-            if content_block.type == "tool_use":
-                tool_result = tool_manager.execute_tool(
-                    content_block.name, 
-                    **content_block.input
-                )
-                
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": content_block.id,
-                    "content": tool_result
-                })
-        
-        # Add tool results as single message
-        if tool_results:
+        current_response = initial_response
+
+        for round_num in range(self.MAX_TOOL_ROUNDS):
+            # Append assistant's tool_use response
+            messages.append({"role": "assistant", "content": current_response.content})
+
+            # Execute tools, collect results
+            tool_results = []
+            tool_failed = False
+            for block in current_response.content:
+                if block.type == "tool_use":
+                    try:
+                        result = tool_manager.execute_tool(block.name, **block.input)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        })
+                    except Exception as e:
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(e),
+                            "is_error": True,
+                        })
+                        tool_failed = True
+
             messages.append({"role": "user", "content": tool_results})
-        
-        # Prepare final API call without tools
-        final_params = {
-            **self.base_params,
-            "messages": messages,
-            "system": base_params["system"]
-        }
-        
-        # Get final response
-        final_response = self.client.messages.create(**final_params)
-        return final_response.content[0].text
+
+            # Build follow-up params
+            is_last_round = round_num == self.MAX_TOOL_ROUNDS - 1
+            follow_up_params = {
+                **self.base_params,
+                "messages": messages,
+                "system": base_params["system"],
+            }
+            if not is_last_round and not tool_failed:
+                follow_up_params["tools"] = base_params["tools"]
+                follow_up_params["tool_choice"] = {"type": "auto"}
+
+            current_response = self.client.messages.create(**follow_up_params)
+
+            # Stop if no more tool calls or a tool failed
+            if current_response.stop_reason != "tool_use" or tool_failed:
+                break
+
+        return self._extract_text(current_response)
