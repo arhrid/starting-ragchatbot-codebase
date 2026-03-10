@@ -111,7 +111,7 @@ header h1 {
 .new-chat-button {
     width: 100%;
     padding: 0.5rem 0;
-    background: transparent;
+    background: none;
     border: none;
     font-size: 0.875rem;
     font-weight: 600;
@@ -121,7 +121,9 @@ header h1 {
     cursor: pointer;
     transition: color 0.2s ease;
     text-align: left;
+    list-style: none;
 }
+
 
 .new-chat-button:hover {
     color: var(--primary-color);
