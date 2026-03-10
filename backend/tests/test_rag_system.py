@@ -6,6 +6,7 @@ from pydantic import BaseModel, ValidationError
 from typing import List, Optional
 
 import sys, os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from vector_store import SearchResults
@@ -21,6 +22,7 @@ def make_search_results(documents=None, metadata=None, distances=None, error=Non
 # ── Inline copy of QueryResponse to test Pydantic validation ────────
 # Mirrors app.py so we can test without importing FastAPI app globals.
 
+
 class QueryResponse(BaseModel):
     answer: str
     sources: List[dict]
@@ -32,10 +34,12 @@ class QueryResponse(BaseModel):
 
 def _build_rag_system():
     """Build a RAGSystem with all heavy deps mocked out."""
-    with patch("rag_system.DocumentProcessor"), \
-         patch("rag_system.VectorStore"), \
-         patch("rag_system.AIGenerator") as MockAI, \
-         patch("rag_system.SessionManager") as MockSession:
+    with (
+        patch("rag_system.DocumentProcessor"),
+        patch("rag_system.VectorStore"),
+        patch("rag_system.AIGenerator") as MockAI,
+        patch("rag_system.SessionManager") as MockSession,
+    ):
 
         mock_config = MagicMock()
         mock_config.CHUNK_SIZE = 800
@@ -48,6 +52,7 @@ def _build_rag_system():
         mock_config.MAX_HISTORY = 2
 
         from rag_system import RAGSystem
+
         rag = RAGSystem(mock_config)
 
         # Wire up mocks for easy access
@@ -80,7 +85,10 @@ class TestRAGSystemQuery:
         rag.query("what is RAG?")
 
         call_kwargs = rag.ai_generator.generate_response.call_args[1]
-        assert "Answer this question about course materials: what is RAG?" in call_kwargs["query"]
+        assert (
+            "Answer this question about course materials: what is RAG?"
+            in call_kwargs["query"]
+        )
 
     def test_passes_tools_and_tool_manager(self):
         """AI generator receives tools and tool_manager."""
@@ -167,6 +175,7 @@ class TestRAGSystemQuery:
         mock_store.get_lesson_link.return_value = "https://example.com/l1"
 
         from search_tools import CourseSearchTool, ToolManager
+
         tm = ToolManager()
         tool = CourseSearchTool(mock_store)
         tm.register_tool(tool)
