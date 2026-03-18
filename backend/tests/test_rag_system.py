@@ -5,18 +5,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from pydantic import BaseModel, ValidationError
 from typing import List, Optional
 
-import sys, os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from vector_store import SearchResults
-
-
-def make_search_results(documents=None, metadata=None, distances=None, error=None):
-    docs = documents or []
-    meta = metadata or []
-    dists = distances or [0.1] * len(docs)
-    return SearchResults(documents=docs, metadata=meta, distances=dists, error=error)
+from conftest import make_search_results
 
 
 # ── Inline copy of QueryResponse to test Pydantic validation ────────
