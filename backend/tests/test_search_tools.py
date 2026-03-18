@@ -2,18 +2,8 @@
 
 import pytest
 from unittest.mock import MagicMock
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from search_tools import CourseSearchTool, ToolManager
-from vector_store import SearchResults
-
-
-def make_search_results(documents=None, metadata=None, distances=None, error=None):
-    docs = documents or []
-    meta = metadata or []
-    dists = distances or [0.1] * len(docs)
-    return SearchResults(documents=docs, metadata=meta, distances=dists, error=error)
+from conftest import make_search_results
 
 
 # ── CourseSearchTool.execute ─────────────────────────────────────────

@@ -2,10 +2,7 @@
 
 import pytest
 from unittest.mock import MagicMock, patch
-from types import SimpleNamespace
-
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from types import SimpleNamespace)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
